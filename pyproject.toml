@@ -1,0 +1,23 @@
+[project]
+name = "gitstage"
+version = "0.1.0"
+description = "A CLI tool for managing Git changes with review workflow"
+authors = [{ name = "Yernero Dev" }]
+
+requires-python = ">=3.8"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "sqlalchemy>=2.0.0",
+    "gitpython>=3.1.0",
+]
+[project.scripts]
+gitstage = "gitstage.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
