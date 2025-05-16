@@ -3,7 +3,7 @@ from git import Repo
 from rich.console import Console
 from rich.table import Table
 
-from .utils import get_change, update_change_status, ChangeStatus
+from gitstage.commands.utils import get_change, update_change_status, ChangeStatus
 
 app = typer.Typer()
 console = Console()

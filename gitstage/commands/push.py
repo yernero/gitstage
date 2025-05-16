@@ -3,7 +3,7 @@ from git import Repo
 from rich.console import Console
 from rich.prompt import Prompt
 
-from .utils import record_change
+from gitstage.commands.utils import record_change
 
 app = typer.Typer()
 console = Console()
