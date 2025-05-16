@@ -3,7 +3,7 @@ from git import Repo
 from rich.console import Console
 from rich.table import Table
 
-from gitstage.commands.utils import get_change, update_change_status, ChangeStatus
+from gitstage.commands.utils import get_change, update_change_status, ChangeStatus, require_git_repo
 
 app = typer.Typer()
 console = Console()
@@ -16,6 +16,9 @@ def review(
 ):
     """Review a change and approve or reject it."""
     try:
+        # Verify Git repository
+        require_git_repo()
+        
         # Get the change record
         change = get_change(commit_hash)
         if not change:

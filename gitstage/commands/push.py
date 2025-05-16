@@ -3,7 +3,7 @@ from git import Repo
 from rich.console import Console
 from rich.prompt import Prompt
 
-from gitstage.commands.utils import record_change
+from gitstage.commands.utils import record_change, require_git_repo
 
 app = typer.Typer()
 console = Console()
@@ -15,6 +15,9 @@ def push(
 ):
     """Record a change and push it to the dev branch."""
     try:
+        # Verify Git repository
+        require_git_repo()
+        
         # Get the current repository
         repo = Repo(".")
         

@@ -3,7 +3,7 @@ from git import Repo
 from rich.console import Console
 from rich.table import Table
 
-from gitstage.commands.utils import get_change
+from gitstage.commands.utils import get_change, require_git_repo
 
 app = typer.Typer()
 console = Console()
@@ -19,6 +19,9 @@ def promote(
 ):
     """Promote changes from dev to testing or main branch."""
     try:
+        # Verify Git repository
+        require_git_repo()
+        
         # Get the current repository
         repo = Repo(".")
         

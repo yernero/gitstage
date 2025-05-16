@@ -1,10 +1,13 @@
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
+import json
 
 from sqlalchemy import Column, DateTime, Enum as SQLEnum, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from git import InvalidGitRepositoryError, Repo
+import typer
 
 class ChangeStatus(str, Enum):
     PENDING = "pending"
@@ -63,3 +66,23 @@ def update_change_status(commit_hash: str, status: ChangeStatus) -> Optional[Cha
             change.status = status
             session.commit()
         return change
+
+def require_git_repo():
+    """Verify the user is inside a Git repository."""
+    try:
+        Repo('.', search_parent_directories=True)
+    except InvalidGitRepositoryError:
+        typer.secho("❌ Not inside a Git repository.", fg=typer.colors.RED)
+        raise typer.Exit(1)
+
+def get_stageflow() -> List[str]:
+    """Get the stageflow configuration from .gitstage_config.json."""
+    config = Path(".gitstage_config.json")
+    if config.exists():
+        return json.loads(config.read_text())["stages"]
+    return ["dev", "testing", "main"]
+
+def save_stageflow(stages: List[str]):
+    """Save the stageflow configuration to .gitstage_config.json."""
+    config = Path(".gitstage_config.json")
+    config.write_text(json.dumps({"stages": stages}, indent=2))
