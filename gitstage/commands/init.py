@@ -58,6 +58,106 @@ def commit_and_push_config(repo: Repo, branch: str, stages: list[str]):
         console.print(f"[red]❌ Failed to commit/push config to {branch}: {str(e)}[/red]")
         raise
 
+def setup_gitignore(repo: Repo, branch: str):
+    """Set up .gitignore to ignore .gitstage/* except config file."""
+    try:
+        # Switch to the branch
+        repo.git.checkout(branch)
+        
+        # Create or update .gitignore
+        gitignore_path = Path(".gitignore")
+        gitignore_content = """# GitStage
+.gitstage/*
+!.gitstage_config.json
+"""
+        
+        # Read existing content if file exists
+        existing_content = ""
+        if gitignore_path.exists():
+            existing_content = gitignore_path.read_text()
+        
+        # Add GitStage rules if not present
+        if "# GitStage" not in existing_content:
+            if existing_content and not existing_content.endswith("\n"):
+                existing_content += "\n"
+            existing_content += gitignore_content
+            gitignore_path.write_text(existing_content)
+            
+            # Stage and commit .gitignore
+            repo.index.add([".gitignore"])
+            repo.index.commit("chore: add GitStage rules to .gitignore")
+            
+            # Push if remote exists
+            if "origin" in repo.remotes:
+                repo.git.push("origin", branch)
+            
+            console.print(f"[green]✓ Added GitStage rules to .gitignore on {branch}[/green]")
+        else:
+            console.print(f"[yellow]ℹ GitStage rules already in .gitignore on {branch}[/yellow]")
+            
+    except Exception as e:
+        console.print(f"[red]❌ Failed to set up .gitignore on {branch}: {str(e)}[/red]")
+        raise
+
+def setup_cr_infrastructure(repo: Repo):
+    """Set up the CR infrastructure in the gitstage/cr-log branch."""
+    try:
+        # Save current branch
+        original_branch = repo.active_branch.name
+        
+        # Check if CR branch exists
+        if "gitstage/cr-log" not in repo.heads:
+            # Create orphan branch
+            repo.git.checkout("--orphan", "gitstage/cr-log")
+            
+            # Create CR infrastructure
+            cr_dir = Path(".gitstage/change_requests")
+            cr_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create next_cr.txt with initial value 0001
+            next_cr_file = Path(".gitstage/next_cr.txt")
+            next_cr_file.write_text("0001")
+            
+            # Stage and commit CR infrastructure
+            repo.index.add([".gitstage/change_requests", ".gitstage/next_cr.txt"])
+            repo.index.commit("Initialize GitStage CR log branch")
+            
+            # Push to remote if it exists
+            if "origin" in repo.remotes:
+                repo.git.push("--set-upstream", "origin", "gitstage/cr-log")
+            
+            console.print("[green]✓ Created gitstage/cr-log branch with CR infrastructure[/green]")
+        else:
+            # Switch to CR branch to ensure files are tracked
+            repo.git.checkout("gitstage/cr-log")
+            
+            # Force add any untracked files
+            if Path(".gitstage/next_cr.txt").exists():
+                repo.index.add([".gitstage/next_cr.txt"], force=True)
+            if Path(".gitstage/change_requests").exists():
+                repo.index.add([".gitstage/change_requests"], force=True)
+            
+            # Commit if there are changes
+            if repo.is_dirty():
+                repo.index.commit("chore: ensure CR infrastructure is tracked")
+                if "origin" in repo.remotes:
+                    repo.git.push("origin", "gitstage/cr-log")
+                console.print("[green]✓ Ensured CR infrastructure is tracked[/green]")
+        
+        # Return to original branch
+        repo.git.checkout(original_branch)
+        console.print(f"[green]✓ Returned to branch:[/] [bold]{original_branch}[/]")
+        
+    except Exception as e:
+        # Try to return to original branch
+        try:
+            repo.git.checkout(original_branch)
+            console.print(f"[green]✓ Returned to branch:[/] [bold]{original_branch}[/]")
+        except:
+            pass
+        console.print(f"[red]❌ Failed to set up CR infrastructure: {str(e)}[/red]")
+        raise
+
 def main(
     stages: list[str] = typer.Option(
         ["dev", "testing", "main"],
@@ -75,6 +175,9 @@ def main(
             repo = Repo.init('.')
             console.print("[green]✓ Initialized new Git repository[/green]")
         
+        # Save original branch
+        original_branch = repo.active_branch.name
+        
         # Ensure remote exists
         if not repo.remotes:
             console.print("[yellow]⚠ No remote found. Creating 'origin'...[/yellow]")
@@ -91,24 +194,32 @@ def main(
             
             # Ensure branch is published
             ensure_branch_published(repo, stage)
+            
+            # Set up .gitignore for mainline branches
+            setup_gitignore(repo, stage)
         
         # Save stageflow configuration
         save_stageflow(stages)
         console.print("[green]✓ Saved stageflow configuration[/green]")
         
         # Commit and push config to all branches
-        current_branch = repo.active_branch.name
         for stage in stages:
             commit_and_push_config(repo, stage, stages)
         
+        # Set up CR infrastructure
+        setup_cr_infrastructure(repo)
+        
         # Return to original branch
-        repo.git.checkout(current_branch)
+        repo.git.checkout(original_branch)
+        console.print(f"[green]✓ Returned to branch:[/] [bold]{original_branch}[/]")
         
         # Show summary
         summary = Panel(
             f"GitStage initialized successfully!\n\n"
             f"Stages: {' → '.join(stages)}\n"
-            f"Config: .gitstage_config.json\n\n"
+            f"Config: .gitstage_config.json\n"
+            f"CR Log: gitstage/cr-log branch\n"
+            f".gitignore: Updated on all branches\n\n"
             f"Config file has been committed and pushed to all branches.",
             title="🎉 Success",
             border_style="green"
@@ -116,5 +227,11 @@ def main(
         console.print(summary)
         
     except Exception as e:
+        # Try to return to original branch
+        try:
+            repo.git.checkout(original_branch)
+            console.print(f"[green]✓ Returned to branch:[/] [bold]{original_branch}[/]")
+        except:
+            pass
         console.print(f"[red]❌ Error: {str(e)}[/red]")
         raise typer.Exit(1) 

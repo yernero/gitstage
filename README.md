@@ -1,24 +1,31 @@
 # GitStage
 
-A CLI tool for managing Git changes with a review workflow. GitStage helps teams maintain a clean and organized Git workflow by providing commands for pushing changes, promoting them through different stages, and managing reviews.
+**GitStage** is a developer-first CLI tool that manages Git changes through a clean, staged review workflow. It simplifies how features move from `dev` → `testing` → `main`, with built-in tooling for promotion, change tracking, and structured reviews.
 
-## Features
+---
 
-- **Stage-based Workflow**: Manage changes through different stages (dev → testing → main)
-- **Change Tracking**: Record and track changes with summaries and test plans
-- **Review System**: Approve or reject changes with comments
-- **Branch Management**: List and switch between branches easily
-- **Rich CLI Interface**: Beautiful and informative command-line interface
+## 🚀 Features
 
-## Installation
+- 🧱 **Stage-based Workflow** – Promote code through defined branches like `dev`, `testing`, `main`
+- 📝 **Change Tracking** – Track summaries and test plans for every promoted commit
+- 🔍 **Review System** – Approve or reject changes with optional comments
+- 🌿 **Branch Management** – List and switch between branches easily
+- 💡 **Rich CLI** – Beautiful command-line interface using `typer` and `rich`
+- 📋 **Change Requests** – Create and manage structured change requests
+
+---
+
+## 📦 Installation
 
 ```bash
 pip install gitstage
 ```
 
-## Configuration
+---
 
-Create a `.gitstage_config.json` file in your repository root:
+## ⚙️ Configuration
+
+Create a `.gitstage_config.json` at the root of your Git repository:
 
 ```json
 {
@@ -26,106 +33,157 @@ Create a `.gitstage_config.json` file in your repository root:
 }
 ```
 
-## Commands
+You can customize the branch names and order to match your workflow.
 
-### 🧪 Push
+---
 
-Promote selected file changes from one branch to the next in your stageflow (`dev` → `testing`, etc.).
+## 🛠️ Commands
+
+### `push`
+
+Promote selected file changes from one stage to the next.
 
 ```bash
 gitstage push
-gitstage push --from dev --to testing --files a.py b.py --summary "fix" --test-plan "unit tests"
+gitstage push --from dev --to testing --files a.py b.py --summary "Fix auth bug" --test-plan "Passed unit tests"
 ```
 
-* Commits uncommitted changes if needed
-* Only promotes when files have changed
-* Prevents duplicate promotions by checking commit history
-* Use `--all` to commit and push all changes without prompting
-* Use `--force-promote` to override no-op checks
+Options:
 
-### 🧹 Flatten
+* `--all` – Commit and push all changes without prompts
+* `--force-promote` – Override checks that prevent duplicate promotions
 
-Reset one or more downstream branches to match a source branch.
+---
+
+### `flatten`
+
+Reset downstream branches to match an upstream branch (e.g., resetting `dev` to `main`).
 
 ```bash
 gitstage flatten --branch-from main --branch-to dev
 gitstage flatten --cascade --force
 ```
 
-* Flattens full pipeline (e.g., `main → testing → dev`)
-* Useful for production resets or enforcing top-down truth
-* Safe with confirmation prompts; use `--force` to skip
-* Use `--dry-run` to preview changes without applying them
+Options:
 
-### ✅ Review
+* `--cascade` – Flatten all downstream stages
+* `--dry-run` – Preview changes
+* `--force` – Skip confirmation prompts
 
-Review and approve/reject tracked commits.
+---
+
+### `review`
+
+Review promoted commits and approve or reject them.
 
 ```bash
 gitstage review <commit-hash> --approve
 gitstage review --all --approve
 ```
 
-* Automatically tracks promoted changes
-* Use `--all` to review and update all pending changes in batch
-* Displays changes in a table with summary and test plan
+* Shows summaries and test plans
+* Batch approve/reject with `--all`
 
-### 🏗️ Init
+---
 
-Initialize a new GitStage repository.
+### `cr`
+
+Manage Change Requests (CRs) for tracking structured changes.
+
+```bash
+# Interactive mode
+gitstage cr add
+
+# Non-interactive mode
+gitstage cr add \
+  --summary "Implement Backend Payment API" \
+  --motivation "CRUD functionality for payment entries" \
+  --dependencies "Prisma schema completed; Express routes structured" \
+  --acceptance "GET/POST/PUT/DELETE /payments; Valid structure; Manual tests" \
+  --notes "Authentication not implemented"
+```
+
+* Creates structured markdown files in `.gitstage/change_requests/`
+* Stores CRs in a separate `gitstage/cr-log` branch
+* Auto-generates CR numbers and metadata
+* Supports both interactive and non-interactive usage
+
+---
+
+### `init`
+
+Initialize GitStage in your current repo.
 
 ```bash
 gitstage init
 ```
 
-### 🌿 Branch
+---
 
-List and switch between branches.
+### `branch`
+
+List available branches or switch between them.
 
 ```bash
-gitstage branch
-gitstage branch <branch-name>
+gitstage branch         # List
+gitstage branch dev     # Switch
 ```
 
-## Development
+---
 
-### Project Structure
+## 🧱 Project Structure
 
 ```
 gitstage/
-├── commands/
-│   ├── __init__.py
-│   ├── push.py
-│   ├── promote.py
-│   ├── review.py
-│   ├── init.py
-│   ├── branch.py
-│   └── utils.py
-├── cli.py
-└── __init__.py
+├── cli.py                # Entry point
+├── __init__.py
+└── commands/
+    ├── push.py
+    ├── promote.py
+    ├── review.py
+    ├── init.py
+    ├── branch.py
+    ├── cr.py
+    ├── utils.py
+    └── __init__.py
 ```
 
-### Dependencies
+---
 
-- typer: CLI framework
-- rich: Terminal formatting
-- gitpython: Git operations
-- sqlalchemy: Database operations
+## 🧪 Development
 
-### Build and Test
+### Install & Test
 
 ```bash
-# Install dependencies
+# Install with editable mode
 pip install -e .
 
 # Run tests
 pytest
 ```
 
-## Contributing
+### Dependencies
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+* [`typer`](https://typer.tiangolo.com/)
+* [`rich`](https://rich.readthedocs.io/)
+* [`gitpython`](https://gitpython.readthedocs.io/)
+* [`sqlalchemy`](https://www.sqlalchemy.org/)
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 🤝 Contributing
+
+Pull requests welcome! Please fork the repo and open a PR. Feature ideas, bug reports, and docs improvements are appreciated.
+
+---
+
+## 📄 License
+
+MIT License. See `LICENSE` for details.
+
+```
+
+---
+
+Let me know if you'd like a shorter version for PyPI or to split this into multiple docs (e.g., `docs/USAGE.md`).
+```

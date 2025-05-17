@@ -1,7 +1,7 @@
 import typer
 from rich.console import Console
 
-from gitstage.commands import push, promote, review, init, clean, flatten
+from gitstage.commands import push, promote, review, init, clean, flatten, cr
 from gitstage.commands.branch import main as branch
 
 app = typer.Typer(help="GitStage - A CLI tool for managing Git changes with review workflow")
@@ -15,6 +15,7 @@ app.add_typer(review.app, name="review", help="Review and approve/reject changes
 app.command(name="branch")(branch)
 app.command("clean")(clean.main)
 app.command("flatten")(flatten.main)
+app.add_typer(cr.app, name="cr", help="Manage Change Requests")
 
 if __name__ == "__main__":
     app()
