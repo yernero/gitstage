@@ -59,6 +59,11 @@ def get_change(commit_hash: str) -> Optional[Change]:
     with get_db_session() as session:
         return session.query(Change).filter(Change.commit_hash == commit_hash).first()
 
+def get_pending_changes() -> List[Change]:
+    """Get all pending changes from the database."""
+    with get_db_session() as session:
+        return session.query(Change).filter(Change.status == ChangeStatus.PENDING).all()
+
 def update_change_status(commit_hash: str, status: ChangeStatus) -> Optional[Change]:
     with get_db_session() as session:
         change = session.query(Change).filter(Change.commit_hash == commit_hash).first()
@@ -66,6 +71,15 @@ def update_change_status(commit_hash: str, status: ChangeStatus) -> Optional[Cha
             change.status = status
             session.commit()
         return change
+
+def update_all_pending_changes(status: ChangeStatus) -> int:
+    """Update all pending changes to the specified status. Returns the number of changes updated."""
+    with get_db_session() as session:
+        result = session.query(Change).filter(Change.status == ChangeStatus.PENDING).update(
+            {Change.status: status}
+        )
+        session.commit()
+        return result
 
 def require_git_repo():
     """Verify the user is inside a Git repository."""

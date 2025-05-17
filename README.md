@@ -16,80 +16,75 @@ A CLI tool for managing Git changes with a review workflow. GitStage helps teams
 pip install gitstage
 ```
 
-## Usage
+## Configuration
 
-### Initialize Repository
+Create a `.gitstage_config.json` file in your repository root:
 
-Initialize your repository with the stageflow configuration:
+```json
+{
+  "stages": ["dev", "testing", "main"]
+}
+```
+
+## Commands
+
+### 🧪 Push
+
+Promote selected file changes from one branch to the next in your stageflow (`dev` → `testing`, etc.).
+
+```bash
+gitstage push
+gitstage push --from dev --to testing --files a.py b.py --summary "fix" --test-plan "unit tests"
+```
+
+* Commits uncommitted changes if needed
+* Only promotes when files have changed
+* Prevents duplicate promotions by checking commit history
+* Use `--all` to commit and push all changes without prompting
+* Use `--force-promote` to override no-op checks
+
+### 🧹 Flatten
+
+Reset one or more downstream branches to match a source branch.
+
+```bash
+gitstage flatten --branch-from main --branch-to dev
+gitstage flatten --cascade --force
+```
+
+* Flattens full pipeline (e.g., `main → testing → dev`)
+* Useful for production resets or enforcing top-down truth
+* Safe with confirmation prompts; use `--force` to skip
+* Use `--dry-run` to preview changes without applying them
+
+### ✅ Review
+
+Review and approve/reject tracked commits.
+
+```bash
+gitstage review <commit-hash> --approve
+gitstage review --all --approve
+```
+
+* Automatically tracks promoted changes
+* Use `--all` to review and update all pending changes in batch
+* Displays changes in a table with summary and test plan
+
+### 🏗️ Init
+
+Initialize a new GitStage repository.
 
 ```bash
 gitstage init
 ```
 
-This will:
-- Create a `.gitstage` directory
-- Set up the stageflow configuration
-- Initialize the SQLite database for change tracking
+### 🌿 Branch
 
-### Branch Management
-
-List all branches or switch to a specific branch:
+List and switch between branches.
 
 ```bash
-# List all branches
 gitstage branch
-
-# Switch to a branch
-gitstage branch dev
-```
-
-The branch command will:
-- Show a formatted table of local and remote branches
-- Mark the current branch
-- Create tracking branches when switching to remote branches
-
-### Push Changes
-
-Push changes to the next stage in the workflow:
-
-```bash
-gitstage push [--branch-from BRANCH] [--branch-to BRANCH] [--files FILES...] [--summary SUMMARY] [--test-plan TEST_PLAN]
-```
-
-The push command will:
-- Handle uncommitted changes
-- Ensure the source branch is synced with origin
-- Show a diff of changes
-- Allow selective file inclusion
-- Create a commit with summary and test plan
-- Push to the destination branch
-- Record the change in the database
-
-### Promote Changes
-
-Promote changes from one stage to another:
-
-```bash
-gitstage promote [--from FROM] [--to TO]
-```
-
-### Review Changes
-
-Review and approve/reject changes:
-
-```bash
-gitstage review [--approve/--reject] [--comment COMMENT]
-```
-
-## Configuration
-
-The tool uses a stageflow configuration to define the stages and their relationships. The default configuration is:
-
-```yaml
-stages:
-  - dev
-  - testing
-  - main
+gitstage branch <branch-name>
 ```
 
 ## Development
@@ -116,6 +111,16 @@ gitstage/
 - rich: Terminal formatting
 - gitpython: Git operations
 - sqlalchemy: Database operations
+
+### Build and Test
+
+```bash
+# Install dependencies
+pip install -e .
+
+# Run tests
+pytest
+```
 
 ## Contributing
 
