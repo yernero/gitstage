@@ -3,9 +3,12 @@ from git import Repo
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
+from rich.table import Table
+from rich.markdown import Markdown
 from pathlib import Path
 import datetime
 import os
+import re
 from typing import Optional
 
 from gitstage.commands.utils import require_git_repo
@@ -195,6 +198,143 @@ def add(
             console.print("[yellow]⚠ CR creation cancelled[/yellow]")
             raise typer.Exit(0)
             
+    except Exception as e:
+        console.print(f"[red]❌ Error: {str(e)}[/red]")
+        raise typer.Exit(1)
+
+def load_cr_file(cr_number: str) -> Optional[str]:
+    """Load a CR file from the gitstage/cr-log branch."""
+    repo = Repo(".")
+    original_branch = repo.active_branch.name
+    
+    try:
+        # Switch to CR branch
+        repo.git.checkout("gitstage/cr-log")
+        
+        # Check if file exists
+        cr_file = Path(f".gitstage/change_requests/CR-{cr_number}.md")
+        if not cr_file.exists():
+            console.print(f"[red]❌ CR-{cr_number} not found[/red]")
+            return None
+        
+        # Read content
+        content = cr_file.read_text()
+        return content
+        
+    except Exception as e:
+        console.print(f"[red]❌ Failed to load CR: {str(e)}[/red]")
+        return None
+    finally:
+        # Return to original branch
+        repo.git.checkout(original_branch)
+
+def parse_cr_metadata(content: str) -> dict:
+    """Parse CR metadata from markdown content."""
+    metadata = {
+        "number": "",
+        "summary": "",
+        "status": "",
+        "stage": "",
+        "created": "",
+        "author": ""
+    }
+    
+    # Parse header line for number and summary
+    header_match = re.match(r"### CR-(\d+): (.*)", content.split("\n")[0])
+    if header_match:
+        metadata["number"] = header_match.group(1)
+        metadata["summary"] = header_match.group(2)
+    
+    # Parse metadata section
+    for line in content.split("\n"):
+        if "**Status**:" in line:
+            metadata["status"] = line.split(":", 1)[1].strip()
+        elif "**Stage**:" in line:
+            metadata["stage"] = line.split(":", 1)[1].strip()
+        elif "**Created**:" in line:
+            metadata["created"] = line.split(":", 1)[1].strip()
+        elif "**Author**:" in line:
+            metadata["author"] = line.split(":", 1)[1].strip()
+    
+    return metadata
+
+@app.command("list")
+def list_crs():
+    """Display a table of all CRs with summary, stage, and status."""
+    try:
+        require_git_repo()
+        repo = Repo(".")
+        original_branch = repo.active_branch.name
+        
+        try:
+            # Switch to CR branch
+            repo.git.checkout("gitstage/cr-log")
+            
+            # Create table
+            table = Table(title="Change Requests")
+            table.add_column("CR", style="cyan")
+            table.add_column("Summary")
+            table.add_column("Stage", style="blue")
+            table.add_column("Status", style="green")
+            table.add_column("Created", style="yellow")
+            table.add_column("Author", style="magenta")
+            
+            # Get all CR files
+            cr_dir = Path(".gitstage/change_requests")
+            if not cr_dir.exists():
+                console.print("[yellow]No CRs found[/yellow]")
+                return
+            
+            # Sort CR files by number
+            cr_files = sorted(cr_dir.glob("CR-*.md"))
+            
+            for cr_file in cr_files:
+                content = cr_file.read_text()
+                metadata = parse_cr_metadata(content)
+                
+                table.add_row(
+                    f"CR-{metadata['number']}",
+                    metadata['summary'],
+                    metadata['stage'],
+                    metadata['status'],
+                    metadata['created'],
+                    metadata['author']
+                )
+            
+            console.print(table)
+            
+        finally:
+            # Return to original branch
+            repo.git.checkout(original_branch)
+            
+    except Exception as e:
+        console.print(f"[red]❌ Error: {str(e)}[/red]")
+        raise typer.Exit(1)
+
+@app.command("show")
+def show_cr(cr_id: str):
+    """Print out a formatted markdown preview of a single CR."""
+    try:
+        require_git_repo()
+        
+        # Extract CR number
+        match = re.match(r"CR-?(\d+)", cr_id)
+        if not match:
+            console.print("[red]❌ Invalid CR ID format. Use CR-XXXX or XXXX[/red]")
+            raise typer.Exit(1)
+        
+        cr_number = match.group(1)
+        
+        # Load CR content
+        content = load_cr_file(cr_number)
+        if not content:
+            raise typer.Exit(1)
+        
+        # Display formatted markdown
+        console.print("\n")
+        console.print(Markdown(content))
+        console.print("\n")
+        
     except Exception as e:
         console.print(f"[red]❌ Error: {str(e)}[/red]")
         raise typer.Exit(1) 
