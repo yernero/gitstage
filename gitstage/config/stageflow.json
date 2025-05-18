@@ -1,0 +1,6 @@
+{
+  "In Progress": { "editable": true },
+  "Testing": { "editable": true },
+  "Main Review": { "editable": true },
+  "Complete": { "editable": false }
+} 
