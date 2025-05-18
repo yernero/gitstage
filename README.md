@@ -11,7 +11,7 @@
 - 🔍 **Review System** – Approve or reject changes with optional comments
 - 🌿 **Branch Management** – List and switch between branches easily
 - 💡 **Rich CLI** – Beautiful command-line interface using `typer` and `rich`
-- 📋 **Change Requests** – Create and manage structured change requests
+- 📋 **Change Requests** – Create and manage structured change requests with stage-based permissions
 
 ---
 
@@ -33,7 +33,18 @@ Create a `.gitstage_config.json` at the root of your Git repository:
 }
 ```
 
-You can customize the branch names and order to match your workflow.
+For Change Request stage permissions, create or modify `gitstage/config/stageflow.json`:
+
+```json
+{
+  "In Progress": { "editable": true },
+  "Testing": { "editable": true },
+  "Main Review": { "editable": true },
+  "Complete": { "editable": false }
+}
+```
+
+You can customize the branch names, order, and CR permissions to match your workflow.
 
 ---
 
@@ -86,27 +97,64 @@ gitstage review --all --approve
 
 ---
 
-### `cr`
+### `cr` (Change Request Management)
 
-Manage Change Requests (CRs) for tracking structured changes.
+Create, edit, and manage Change Requests (CRs) with stage-based permissions.
 
 ```bash
-# Interactive mode
+# Create a new CR (interactive mode)
 gitstage cr add
 
-# Non-interactive mode
+# Create a new CR (non-interactive mode)
 gitstage cr add \
   --summary "Implement Backend Payment API" \
   --motivation "CRUD functionality for payment entries" \
   --dependencies "Prisma schema completed; Express routes structured" \
   --acceptance "GET/POST/PUT/DELETE /payments; Valid structure; Manual tests" \
   --notes "Authentication not implemented"
+
+# List all CRs
+gitstage cr list
+
+# Show CR details
+gitstage cr show CR-0001
+# or
+gitstage cr show 0001
+
+# Edit a CR (if stage allows)
+gitstage cr edit CR-0001
+# or
+gitstage cr edit 0001 --editor "notepad++"
 ```
 
+Features:
 * Creates structured markdown files in `.gitstage/change_requests/`
 * Stores CRs in a separate `gitstage/cr-log` branch
 * Auto-generates CR numbers and metadata
-* Supports both interactive and non-interactive usage
+* Stage-based edit permissions
+* Cross-platform editor support
+* Environment variable support (`EDITOR`/`VISUAL`)
+* UTF-8 encoding handling
+* Rich table output for listing
+* Markdown preview for viewing
+
+Editor Configuration:
+* Uses `$EDITOR` or `$VISUAL` environment variables
+* Falls back to platform defaults (Notepad++/notepad on Windows, nano/vim/vi on Unix)
+* Override with `--editor` flag
+* Special support for Notepad++ on Windows
+
+Example Notepad++ Configuration:
+```bash
+# Windows PowerShell
+$env:EDITOR="'C:\Program Files\Notepad++\notepad++.exe' -multiInst -notabbar -nosession -noPlugin -notepadStyleCmdline"
+
+# Windows CMD
+set EDITOR="C:\Program Files\Notepad++\notepad++.exe" -multiInst -notabbar -nosession -noPlugin -notepadStyleCmdline
+
+# Unix
+export EDITOR=nano
+```
 
 ---
 
@@ -143,7 +191,7 @@ gitstage/
     ├── review.py
     ├── init.py
     ├── branch.py
-    ├── cr.py
+    ├── cr.py            # Change Request management
     ├── utils.py
     └── __init__.py
 ```

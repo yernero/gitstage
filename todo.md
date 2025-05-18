@@ -17,8 +17,26 @@
 - [ ] Add duplicate commit check
 - [ ] Add branch tracking for feature branches
 
+### Change Request (CR) Management
+- [x] Implement `cr add` command with markdown structure
+- [x] Implement `cr list` command with rich table output
+- [x] Implement `cr show` command with markdown preview
+- [x] Implement `cr edit` command with stage-based permissions
+- [x] Add cross-platform editor support (Windows/Unix)
+- [x] Add proper encoding and temp file handling
+- [x] Add stage-based edit permissions via stageflow.json
+- [ ] Add `cr delete` command with permissions
+- [ ] Add `cr transition` command for stage changes
+- [ ] Add `cr search` functionality
+- [ ] Add `cr export` to different formats
+- [ ] Add CR template customization
+- [ ] Add CR validation rules
+- [ ] Add CR review workflow
+- [ ] Add CR statistics and reporting
+
 ### Git Features
 - [x] Add branch management with `gitstage branch`
+- [x] Add CR branch management (`gitstage/cr-log`)
 - [ ] Add `gitstage start feature/<name>` to track branches
 - [ ] Add `gitstage status` to show pending promotions and approvals
 - [ ] Add rollback support for rejected changes
@@ -31,17 +49,23 @@
 - [ ] Add integration tests for workflow scenarios
 - [ ] Add test coverage reporting
 - [ ] Add integration tests for `flatten --cascade` and `push` with edge cases
+- [ ] Add CR command test suite
+- [ ] Add editor integration tests
+- [ ] Add encoding and temp file tests
 
 ### UX
 - [x] Improve `rich` output for logs
 - [x] Add progress indicators for long operations
 - [x] Add more detailed error messages
+- [x] Add editor environment variable support
+- [x] Add editor override options
 - [ ] Add command aliases for common operations
 - [ ] Add interactive mode for complex operations
 
 ### Documentation
 - [x] Update README with command documentation
 - [x] Add detailed usage examples
+- [x] Document CR workflow and commands
 - [ ] Add troubleshooting guide
 - [ ] Add contribution guidelines
 - [ ] Add architecture documentation
