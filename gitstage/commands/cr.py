@@ -11,11 +11,14 @@ Features:
 - CR Viewing: View formatted CR content
 - CR Listing: List all CRs with their metadata
 - Stage Management: Prevent editing of CRs in terminal stages
+- Audit Logging: Track all CR edits with user and timestamp
+- Version History: Keep historical snapshots of CRs
+- Diff Preview: Show changes before saving
 
 Editor Support:
 - Cross-platform editor integration (Windows/Unix)
 - Environment variable support (EDITOR/VISUAL)
-- Notepad++ integration on Windows
+- Notepad++ auto-detection on Windows
 - UTF-8 encoding handling
 - Temporary file management
 
@@ -53,8 +56,8 @@ from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
+from rich.syntax import Syntax
 from pathlib import Path
-import datetime
 import os
 import re
 import json
@@ -62,8 +65,10 @@ import platform
 import shlex
 import subprocess
 import tempfile
-from typing import Optional, Dict, Tuple
+import difflib
+from typing import Optional, Dict, Tuple, List, Set
 from functools import lru_cache
+from datetime import datetime, timezone
 
 from gitstage.commands.utils import require_git_repo
 
@@ -167,7 +172,13 @@ def create_cr_file(
     """
     author = get_git_user_name()
     stage = Repo(".").active_branch.name
-    created = datetime.datetime.now().strftime("%Y-%m-%d")
+    created = datetime.now().strftime("%Y-%m-%d")
+    
+    # Ensure multiline fields are properly formatted
+    def format_multiline(text: str) -> str:
+        if not text:
+            return "None"
+        return "\n".join(f"{line}" for line in text.splitlines())
     
     content = f"""### CR-{cr_number}: {summary}
 
@@ -177,25 +188,25 @@ def create_cr_file(
 **Author**: {author}
 
 **Summary**:  
-{summary}
+{format_multiline(summary)}
 
 **Motivation**:  
-{motivation}
+{format_multiline(motivation)}
 
 **Dependencies**:  
-{dependencies}
+{format_multiline(dependencies)}
 
 **Acceptance Criteria**:  
-{acceptance}
+{format_multiline(acceptance)}
 
 **Notes**:  
-{notes or "None"}
+{format_multiline(notes or "")}
 """
     
     cr_dir = Path(".gitstage/change_requests")
     cr_dir.mkdir(parents=True, exist_ok=True)
     cr_file = cr_dir / f"CR-{cr_number}.md"
-    cr_file.write_text(content)
+    cr_file.write_text(content, encoding='utf-8')
     return cr_file
 
 def load_cr_file(cr_number: str) -> Optional[str]:
@@ -305,6 +316,122 @@ def is_stage_editable(stage: str) -> bool:
     return stage_config["editable"]
 
 # Editor Integration
+def detect_notepad_plus_plus() -> Optional[str]:
+    """
+    Auto-detect Notepad++ installation on Windows.
+    Returns the full editor command with arguments if found.
+    """
+    if platform.system() != "Windows":
+        return None
+        
+    known_paths = [
+        r"C:\Program Files\Notepad++\notepad++.exe",
+        r"C:\Program Files (x86)\Notepad++\notepad++.exe"
+    ]
+    
+    for path in known_paths:
+        if os.path.exists(path):
+            return f'"{path}" -multiInst -notabbar -nosession -noPlugin -notepadStyleCmdline'
+    
+    return None
+
+def get_history_dir() -> Path:
+    """Get the directory for storing CR history and logs."""
+    history_dir = Path(".gitstage/history")
+    history_dir.mkdir(parents=True, exist_ok=True)
+    return history_dir
+
+def save_cr_version(cr_number: str, content: str) -> str:
+    """
+    Save a historical version of a CR.
+    
+    Args:
+        cr_number: The CR number
+        content: CR content to save
+        
+    Returns:
+        str: The timestamp used for the version
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    version_dir = get_history_dir() / f"CR-{cr_number}"
+    version_dir.mkdir(exist_ok=True)
+    
+    version_file = version_dir / f"{timestamp}.md"
+    version_file.write_text(content, encoding='utf-8')
+    
+    return timestamp
+
+def log_cr_edit(cr_number: str, original: str, edited: str) -> None:
+    """
+    Log a CR edit to the history file.
+    
+    Args:
+        cr_number: The CR number
+        original: Original content
+        edited: New content
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    log_file = get_history_dir() / f"CR-{cr_number}.log.json"
+    
+    # Parse which sections changed
+    def get_sections(content: str) -> Set[str]:
+        sections = set()
+        for line in content.splitlines():
+            if line.startswith("**") and "**:" in line:
+                section = line[2:line.find("**:")]
+                sections.add(section)
+        return sections
+    
+    original_sections = get_sections(original)
+    edited_sections = get_sections(edited)
+    changed_sections = list(edited_sections - original_sections)
+    
+    # Create log entry
+    log_entry = {
+        "timestamp": timestamp,
+        "user": get_git_user_name(),
+        "cr_id": f"CR-{cr_number}",
+        "summary": "Edited CR via gitstage",
+        "changes_detected": changed_sections
+    }
+    
+    # Append to log file
+    if log_file.exists():
+        logs = json.loads(log_file.read_text(encoding='utf-8'))
+    else:
+        logs = []
+    
+    logs.append(log_entry)
+    log_file.write_text(json.dumps(logs, indent=2), encoding='utf-8')
+
+def show_diff_preview(original: str, edited: str) -> None:
+    """
+    Show a diff preview of changes using rich formatting.
+    
+    Args:
+        original: Original content
+        edited: New content
+    """
+    diff = list(difflib.unified_diff(
+        original.splitlines(),
+        edited.splitlines(),
+        fromfile="Before Edit",
+        tofile="After Edit",
+        lineterm=""
+    ))
+    
+    if not diff:
+        console.print("[yellow]No changes detected.[/yellow]")
+        return
+    
+    console.print("\n[bold]Changes Preview:[/bold]")
+    
+    # Format diff with syntax highlighting
+    diff_text = "\n".join(diff)
+    syntax = Syntax(diff_text, "diff", theme="monokai")
+    console.print(syntax)
+    console.print()
+
 def open_editor(file_path: str, editor_override: Optional[str] = None) -> bool:
     """
     Open a file in the user's preferred editor and wait for it to close.
@@ -324,24 +451,19 @@ def open_editor(file_path: str, editor_override: Optional[str] = None) -> bool:
         editor = editor_override or os.environ.get("EDITOR") or os.environ.get("VISUAL")
         
         if not editor:
-            if platform.system() == "Windows":
-                npp_paths = [
-                    r"C:\Program Files\Notepad++\notepad++.exe",
-                    r"C:\Program Files (x86)\Notepad++\notepad++.exe"
-                ]
-                for npp in npp_paths:
-                    if os.path.exists(npp):
-                        editor = f'"{npp}" -multiInst -notabbar -nosession -noPlugin -notepadStyleCmdline'
-                        break
-                if not editor:
+            # Try to detect Notepad++ first on Windows
+            editor = detect_notepad_plus_plus()
+            
+            if not editor:
+                if platform.system() == "Windows":
                     editor = "notepad"
-            else:
-                for ed in ["nano", "vim", "vi"]:
-                    if subprocess.run(["which", ed], capture_output=True).returncode == 0:
-                        editor = ed
-                        break
-                if not editor:
-                    raise RuntimeError("No suitable editor found. Please set EDITOR environment variable.")
+                else:
+                    for ed in ["nano", "vim", "vi"]:
+                        if subprocess.run(["which", ed], capture_output=True).returncode == 0:
+                            editor = ed
+                            break
+                    if not editor:
+                        raise RuntimeError("No suitable editor found. Please set EDITOR environment variable.")
         
         if platform.system() == "Windows":
             if editor.startswith('"') and '"' in editor[1:]:
@@ -421,6 +543,7 @@ def edit_cr(
     
     The CR must not be in a terminal stage (e.g., "Complete") as defined in stageflow.json.
     Supports multiple editors and platforms, with proper UTF-8 encoding handling.
+    Shows diff preview and maintains edit history.
     
     Args:
         cr_id: CR identifier (XXXX or CR-XXXX format)
@@ -458,7 +581,21 @@ def edit_cr(
                     edited_content = temp.read()
                 
                 if has_content_changed(content, edited_content):
+                    # Show diff preview
+                    show_diff_preview(content, edited_content)
+                    
+                    # Confirm changes
+                    if not Confirm.ask("Do you want to save these changes?"):
+                        console.print("[yellow]Changes discarded.[/yellow]")
+                        return
+                    
+                    # Save historical version
+                    save_cr_version(cr_number, content)
+                    
+                    # Save changes
                     if save_cr_changes(cr_number, edited_content):
+                        # Log the edit
+                        log_cr_edit(cr_number, content, edited_content)
                         console.print(f"[green]✓ Successfully updated CR-{cr_number}[/green]")
                     else:
                         console.print(f"[red]❌ Failed to save changes to CR-{cr_number}[/red]")
@@ -672,4 +809,72 @@ def save_cr_to_branch(cr_file: Path, summary: str, cr_number: str) -> None:
             console.print(f"[green]✓ Returned to branch:[/] [bold]{original_branch}[/]")
         except Exception as e:
             console.print(f"[red]❌ Failed to return to original branch: {str(e)}[/red]")
-            raise 
+            raise
+
+@app.command("history")
+def show_history(cr_id: str):
+    """Show edit history and previous versions of a CR."""
+    try:
+        require_git_repo()
+        cr_number = get_cr_number(cr_id)
+        
+        # Check history directory
+        history_dir = get_history_dir()
+        version_dir = history_dir / f"CR-{cr_number}"
+        log_file = history_dir / f"CR-{cr_number}.log.json"
+        
+        if not version_dir.exists() or not log_file.exists():
+            console.print(f"[yellow]No history found for CR-{cr_number}[/yellow]")
+            return
+        
+        # Show edit log
+        logs = json.loads(log_file.read_text(encoding='utf-8'))
+        
+        table = Table(title=f"Edit History for CR-{cr_number}")
+        table.add_column("Timestamp", style="cyan")
+        table.add_column("User", style="green")
+        table.add_column("Changes", style="yellow")
+        
+        for entry in logs:
+            table.add_row(
+                entry["timestamp"],
+                entry["user"],
+                ", ".join(entry["changes_detected"]) or "No sections changed"
+            )
+        
+        console.print(table)
+        console.print()
+        
+        # List versions
+        versions = sorted(version_dir.glob("*.md"))
+        if not versions:
+            return
+        
+        console.print("[bold]Available Versions:[/bold]")
+        for i, version in enumerate(versions, 1):
+            timestamp = version.stem
+            console.print(f"{i}. {timestamp}")
+        
+        # Allow version selection
+        choice = Prompt.ask(
+            "\nSelect version to view",
+            choices=[str(i) for i in range(1, len(versions) + 1)],
+            default="1"
+        )
+        
+        selected = versions[int(choice) - 1]
+        content = selected.read_text(encoding='utf-8')
+        
+        # Show version content
+        console.print("\n[bold]Version Content:[/bold]")
+        console.print(Markdown(content))
+        
+        # Offer diff with current
+        if Confirm.ask("Show diff with current version?"):
+            current = load_cr_file(cr_number)
+            if current:
+                show_diff_preview(content, current)
+        
+    except Exception as e:
+        console.print(f"[red]❌ Error: {str(e)}[/red]")
+        raise typer.Exit(1) 
