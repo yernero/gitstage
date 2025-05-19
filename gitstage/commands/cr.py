@@ -176,9 +176,10 @@ def create_cr_file(
     
     # Ensure multiline fields are properly formatted
     def format_multiline(text: str) -> str:
-        if not text:
-            return "None"
-        return "\n".join(f"{line}" for line in text.splitlines())
+        """Format multiline text with proper line breaks."""
+        if text is None or text.strip() == "":
+            return "\nNone"  # Add newline before "None"
+        return "\n" + "\n".join(line for line in text.splitlines())
     
     content = f"""### CR-{cr_number}: {summary}
 
