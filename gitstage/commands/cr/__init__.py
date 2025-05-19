@@ -1,7 +1,7 @@
 """
-Change Request (CR) Management Module
+Change Request (CR) Management Package
 
-This module provides functionality for managing Change Requests (CRs) in the GitStage system.
+This package provides functionality for managing Change Requests (CRs) in the GitStage system.
 It handles CR creation, editing, viewing, and listing, with proper stage management and 
 editor integration.
 
@@ -20,60 +20,41 @@ Editor Support:
 - Environment variable support (EDITOR/VISUAL)
 - Notepad++ auto-detection on Windows
 - Proper handling of multiline content
-
-Completed Tasks:
-✓ Basic CR creation with markdown structure
-✓ CR number management and incrementation
-✓ CR branch management (gitstage/cr-log)
-✓ Stage-based editing permissions
-✓ Cross-platform editor support
-✓ Proper encoding handling
-✓ Temporary file management
-✓ CR listing with rich formatting
-✓ CR viewing with markdown rendering
-✓ Editor override support
-✓ Notepad++ integration
-✓ Error handling and user feedback
-✓ Branch state preservation
-✓ Content change detection
-
-Todo:
-- Add CR deletion command
-- Add CR stage transition command
-- Add CR search functionality
-- Add CR export functionality
-- Add CR template customization
-- Add CR validation rules
-- Add CR review workflow
-- Add CR statistics
 """
 
 import typer
-from rich.console import Console
-from rich.panel import Panel
-from rich.markdown import Markdown
-from rich.table import Table
-from rich.prompt import Prompt, Confirm
-from git import Repo
 from pathlib import Path
+from typing import Optional
 from datetime import datetime
+from rich.console import Console
+from rich.prompt import Prompt, Confirm
+from rich.panel import Panel
+from rich.table import Table
+from rich.markdown import Markdown
+from git import Repo
+import json
 
-from .cr.utils import (
+from gitstage.commands.utils import require_git_repo
+from .edit import app as edit_app
+from .utils import (
     get_next_cr_number,
     normalize_cr_id,
+    get_cr_number,
+    get_git_user_name,
     load_cr_file,
     save_cr_changes,
     parse_cr_metadata,
-    open_editor,
-    has_content_changed,
     setup_cr_branch,
     save_cr_to_branch,
-    create_cr_file,
-    show_diff_preview
+    create_cr_file
 )
 
+# Create the main CR command group
 app = typer.Typer(help="Manage Change Requests (CRs)")
 console = Console()
+
+# Register subcommands
+app.add_typer(edit_app, name="edit")
 
 @app.command()
 def add(
@@ -137,8 +118,8 @@ def show(cr_id: str):
         console.print(f"[red]❌ Failed to show CR: {str(e)}[/red]")
         raise typer.Exit(1)
 
-@app.command()
-def list():
+@app.command(name="list")
+def list_crs():
     """List all Change Requests."""
     try:
         repo = Repo(".")
@@ -152,25 +133,38 @@ def list():
                 console.print("[yellow]No CRs found.[/yellow]")
                 return
             
-            table = Table(show_header=True, header_style="bold")
-            table.add_column("ID")
+            table = Table(title="Change Requests", show_header=True, header_style="bold")
+            table.add_column("CR", style="cyan", justify="left")
             table.add_column("Summary")
-            table.add_column("Stage")
+            table.add_column("Stage", style="blue")
             table.add_column("Status")
-            table.add_column("Created")
-            table.add_column("Author")
+            table.add_column("Created", style="yellow")
+            table.add_column("Author", style="magenta")
+            
+            status_colors = {
+                "In Progress": "green",
+                "Testing": "yellow",
+                "Main Review": "magenta",
+                "Complete": "red"
+            }
             
             for cr_file in sorted(cr_dir.glob("CR-*.md")):
                 content = cr_file.read_text()
                 metadata = parse_cr_metadata(content)
-                
+                cr_id = f"[link=file://{cr_file}][blue underline]CR-{metadata['number']}[/blue underline][/link]"
+                stage = f"[blue]{metadata['stage']}[/blue]"
+                status = metadata["status"]
+                status_color = status_colors.get(status, "white")
+                status_str = f"[{status_color}]{status}[/{status_color}]"
+                created = f"[yellow]{metadata['created']}[/yellow]"
+                author = f"[magenta]{metadata['author']}[/magenta]"
                 table.add_row(
-                    f"CR-{metadata['number']}",
+                    cr_id,
                     metadata["summary"],
-                    metadata["stage"],
-                    metadata["status"],
-                    metadata["created"],
-                    metadata["author"]
+                    stage,
+                    status_str,
+                    created,
+                    author
                 )
             
             console.print(table)
@@ -237,5 +231,13 @@ def history(cr_id: str):
         console.print(f"[red]❌ Failed to show CR history: {str(e)}[/red]")
         raise typer.Exit(1)
 
-if __name__ == "__main__":
-    app() 
+# Re-export commonly used functions
+__all__ = [
+    "app",
+    "get_next_cr_number",
+    "normalize_cr_id",
+    "get_cr_number",
+    "load_cr_file",
+    "save_cr_changes",
+    "parse_cr_metadata"
+] 

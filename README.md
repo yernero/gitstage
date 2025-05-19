@@ -101,30 +101,18 @@ gitstage review --all --approve
 
 Create, edit, and manage Change Requests (CRs) with stage-based permissions.
 
+- **Modular subcommand structure:** CR commands are now organized in a package with subcommands (e.g., `cr edit`).
+- **Enhanced `cr edit` command:** Now a Typer subcommand, supports future extensions, and provides diff preview before saving.
+- **Stage-based permissions:** Editing is only allowed in stages marked editable in `stageflow.json`.
+- **Improved editor integration:** Supports `$EDITOR`, `$VISUAL`, `--editor` flag, and Notepad++ auto-detection on Windows.
+- **Rich diff preview:** See changes before saving edits.
+- **Version history:** All edits are versioned in the `gitstage/cr-log` branch.
+
+Example usage:
 ```bash
-# Create a new CR (interactive mode)
-gitstage cr add
-
-# Create a new CR (non-interactive mode)
-gitstage cr add \
-  --summary "Implement Backend Payment API" \
-  --motivation "CRUD functionality for payment entries" \
-  --dependencies "Prisma schema completed; Express routes structured" \
-  --acceptance "GET/POST/PUT/DELETE /payments; Valid structure; Manual tests" \
-  --notes "Authentication not implemented"
-
-# List all CRs
-gitstage cr list
-
-# Show CR details
-gitstage cr show CR-0001
+gitstage cr edit 0001
 # or
-gitstage cr show 0001
-
-# Edit a CR (if stage allows)
-gitstage cr edit CR-0001
-# or
-gitstage cr edit 0001 --editor "notepad++"
+gitstage cr edit CR-0001 --editor "notepad++"
 ```
 
 Features:

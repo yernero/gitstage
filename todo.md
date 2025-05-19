@@ -21,10 +21,11 @@
 - [x] Implement `cr add` command with markdown structure
 - [x] Implement `cr list` command with rich table output
 - [x] Implement `cr show` command with markdown preview
-- [x] Implement `cr edit` command with stage-based permissions
-- [x] Add cross-platform editor support (Windows/Unix)
-- [x] Add proper encoding and temp file handling
-- [x] Add stage-based edit permissions via stageflow.json
+- [x] Refactor `cr edit` command as Typer subcommand with modular structure
+- [x] Move CR edit logic to `gitstage/commands/cr/edit.py`
+- [x] Add stage-based edit permissions using `stageflow.json`
+- [x] Add diff preview and user confirmation before saving edits
+- [x] Improve editor integration and override support
 - [ ] Add `cr delete` command with permissions
 - [ ] Add `cr transition` command for stage changes
 - [ ] Add `cr search` functionality
