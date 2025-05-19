@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.panel import Panel
 from pathlib import Path
 import json
+import re
 
 from gitstage.commands.utils import save_stageflow
 
@@ -167,6 +168,14 @@ def main(
 ):
     """Initialize GitStage in the current repository."""
     try:
+        # Validate stage names
+        for stage in stages:
+            if not stage or stage.strip() == "":
+                raise typer.BadParameter(f"Invalid stage name '{stage}': must not be empty or whitespace.")
+            if stage.startswith("-"):
+                raise typer.BadParameter(f"Invalid stage name '{stage}': must not start with a dash.")
+            if not re.fullmatch(r"^[A-Za-z0-9._/-]+$", stage):
+                raise typer.BadParameter(f"Invalid stage name '{stage}': must only contain letters, numbers, dots, underscores, dashes, or slashes.")
         # Try to get existing repo or initialize new one
         try:
             repo = Repo('.', search_parent_directories=True)
